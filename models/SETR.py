@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
-from torch.autograd import Variable
-from einops import rearrange, repeat
+from torch.autograd import Variable#自动微分包
+from einops import rearrange, repeat#处理张量
 from einops.layers.torch import Rearrange
 import numpy as np
 from utils.visualization import attentionheatmap_visual, attentionheatmap_visual2
@@ -30,7 +30,7 @@ class PreNorm(nn.Module):
         self.norm = nn.LayerNorm(dim)
         self.fn = fn
     def forward(self, x, **kwargs):
-        return self.fn(self.norm(x), **kwargs)
+        return self.fn(self.norm(x), **kwargs)#捏在一起？？
 
 class CNNPreNorm(nn.Module):
     def __init__(self, dim, fn):
@@ -38,7 +38,7 @@ class CNNPreNorm(nn.Module):
         self.norm = nn.BatchNorm2d(dim)
         self.fn = fn
     def forward(self, x, **kwargs):
-        return self.fn(self.norm(x), **kwargs)
+        return self.fn(self.norm(x), **kwargs)#多头注意力捏在一起？？
 
 
 class FeedForward(nn.Module):
@@ -55,7 +55,7 @@ class FeedForward(nn.Module):
         return self.net(x)
 
 
-class CNNFeedForward(nn.Module):
+class CNNFeedForward(nn.Module):#加了卷积层
     def __init__(self, dim, hidden_dim, dropout=0.):
         super().__init__()
         self.net = nn.Sequential(
