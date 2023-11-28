@@ -14,12 +14,17 @@ def pair(t):
     return t if isinstance(t, tuple) else (t, t)
 
 def relative_pos_dis(height=32, weight=32, sita=0.9):
+    # 生成高度和宽度的1D坐标
     coords_h = torch.arange(height)
     coords_w = torch.arange(weight)
+    # 创建2D坐标网格
     coords = torch.stack(torch.meshgrid([coords_h, coords_w]))  # 2, Wh, Ww # 0 is 32 * 32 for h, 1 is 32 * 32 for w
-    coords_flatten = torch.flatten(coords, 1)  # 2, Wh*Ww
+    coords_flatten = torch.flatten(coords, 1)  # 2, Wh*Ww# # 将2D坐标展平为2 x (Wh * Ww)
+    # 计算相对坐标
     relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]  # 2, Wh*Ww, Wh*Ww
+     # 对维度进行置换以便进一步计算
     relative_coords = relative_coords.permute(1, 2, 0).contiguous()  # Wh*Ww, Wh*Ww, 2
+    # 计算相对位置距离
     dis = (relative_coords[:, :, 0].float()/height) ** 2 + (relative_coords[:, :, 1].float()/weight) ** 2
     #dis = torch.exp(-dis*(1/(2*sita**2)))
     return  dis
@@ -41,7 +46,7 @@ class CNNPreNorm(nn.Module):
         return self.fn(self.norm(x), **kwargs)
 
 
-class FeedForward(nn.Module):
+class FeedForward(nn.Module):#前馈网络 对应论文第三个部分
     def __init__(self, dim, hidden_dim, dropout=0.):
         super().__init__()
         self.net = nn.Sequential(
@@ -55,7 +60,7 @@ class FeedForward(nn.Module):
         return self.net(x)
 
 
-class CNNFeedForward(nn.Module):
+class CNNFeedForward(nn.Module):#前馈网络 对应论文第三个部分 两个CBR模块连接
     def __init__(self, dim, hidden_dim, dropout=0.):
         super().__init__()
         self.net = nn.Sequential(
@@ -71,25 +76,26 @@ class CNNFeedForward(nn.Module):
 
 
 class Attention(nn.Module):
-    def __init__(self, dim, heads=8, dim_head=64, dropout=0.):
+    def __init__(self, dim, heads=8, dim_head=64, dropout=0.):#dim head 注意力头维度 head注意力头数量
         super().__init__()
-        inner_dim = dim_head * heads
+        inner_dim = dim_head * heads#注意力头的维度 *注意力头数量=总维度
         project_out = not (heads == 1 and dim_head == dim)
 
         self.heads = heads
-        self.scale = dim_head ** -0.5
+        self.scale = dim_head ** -0.5#尺度 为注意力头维度开方
 
         self.attend = nn.Softmax(dim=-1)
-        self.to_qkv = nn.Linear(dim, inner_dim * 3, bias = False)
+        self.to_qkv = nn.Linear(dim, inner_dim * 3, bias = False)#线性层处理之后输出三个 qkv向量
 
         self.to_out = nn.Sequential(
-            nn.Linear(inner_dim, dim),
+            nn.Linear(inner_dim, dim),#注意力输出 输出最后和输入一样也是dim维度
             nn.Dropout(dropout)
         ) if project_out else nn.Identity()
 
     def forward(self, x, mode="train"):
-        qkv = self.to_qkv(x).chunk(3, dim=-1)
+        qkv = self.to_qkv(x).chunk(3, dim=-1)#chunk 切割成3块 qkv
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=self.heads), qkv)
+        #查询、键和值张量被重塑为形状为(batch_size, num_heads, sequence_length, head_dim)的张量。
         dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale
         dots = dots/1.0 # T
         attn = self.attend(dots)
